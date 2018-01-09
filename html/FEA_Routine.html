@@ -1,0 +1,483 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>FEA_Routine</title><meta name="generator" content="MATLAB 8.0"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2013-03-11"><meta name="DC.source" content="FEA_Routine.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, tt, code { font-size:12px; }
+pre { margin:0px 0px 20px; }
+pre.error { color:red; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">function</span> [ SX,SY,SZ,SSTRAIN,X,Y,Z,Displacements,dimensions] = FEA_Routine( meshx_sample,meshy,meshz,aspectab,aspectac,bcmode,ex,ey,ez,material_type,styecastratio )
+<span class="comment">%FEA_Routine: Performs mesh generation and solution of elasticity problem</span>
+<span class="comment">%using 8-node hexahedral finite element analysis</span>
+
+
+
+<span class="comment">%_________________________________________________________________</span>
+<span class="comment">%| 8-Node Hexahedral Finite Element Solver</span>
+<span class="comment">%|This function assembles a cuboidal mesh of 8-node hexahedral elements for</span>
+<span class="comment">%input argument specified aspect ratios. It then imposes one of a predefined set</span>
+<span class="comment">%of boundary conditions on the system and then solves for the displacement</span>
+<span class="comment">%field. The system stiffness matrix is assembled  and the displacement</span>
+<span class="comment">%field is solved for using</span>
+<span class="comment">%Cholesky decomposition.</span>
+<span class="comment">%</span>
+<span class="comment">%Input arguments:</span>
+<span class="comment">%</span>
+<span class="comment">%meshx_sample:   The number of elements along the x -direction that the</span>
+<span class="comment">%sample outside the stycast should have. Extra elements are added by the</span>
+<span class="comment">%program for any length of crystal inside stycast.</span>
+<span class="comment">%meshy: y -direction elements</span>
+<span class="comment">%meshz: z-direction elements</span>
+<span class="comment">%aspectab: sample length in x / sample length in y</span>
+<span class="comment">%aspectac: sample length in x/ sample length in z</span>
+<span class="comment">%bcmode: Boundary condition type. Takes values 1,2,3 corresponding to only</span>
+<span class="comment">%edges of end faces clamped, ends embedded in stycast, end embedded but</span>
+<span class="comment">%only bottom face constrained</span>
+<span class="comment">%ex,ey,ez imposed strains along the x,y,z directions. Note that +ve</span>
+<span class="comment">%corresponds to compression</span>
+<span class="comment">%|material_type: takes values 1,2 correspondong to Sr$2$RuO$4$ and</span>
+<span class="comment">%Isoptropic material</span>
+<span class="comment">%styecast_ratio: Extra length of crystal at each end is embedded in</span>
+<span class="comment">%styecast_ratio * Min(length in z, length in y)</span>
+<span class="comment">%|</span>
+<span class="comment">%| Output Variables:</span>
+<span class="comment">%| SX, SY, SZ are mxnxp arrays specifying the X, Y, Z co-ordinates of the centre of the elements in meshgrid format</span>
+<span class="comment">% SSTRAIN is an mxnxpx6 arrays holding the strains 1-6 evaluated at the</span>
+<span class="comment">% centre of each element in meshgrid format</span>
+<span class="comment">%X,Y,Z specific co-ordinates of nodes in a format that will be described</span>
+<span class="comment">%alongside their allocation</span>
+<span class="comment">%Displacements holds the displacements in a format specified alongside allocation</span>
+<span class="comment">%dimensions: Vector is the format [ total x-length, sample x-length, total</span>
+<span class="comment">%elements in x, # el in y, #el in z]</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%Required Functions:</span>
+<span class="comment">%Preprocessor.m</span>
+<span class="comment">%Boundary_Conditions.m</span>
+<span class="comment">%Solver_v2.m</span>
+<span class="comment">%Strain_calc.m</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%________________________________________________________________</span>
+
+tic
+
+<span class="comment">%Calculate meshx_sty = # elements in x embedded in stycast, set equal to</span>
+<span class="comment">%whichever of meshy, meshz is larger</span>
+
+<span class="keyword">if</span> bcmode==2 || bcmode==3
+meshx_sty=2*max(meshy,meshz);
+<span class="keyword">else</span>
+    meshx_sty=0;
+<span class="keyword">end</span>
+
+meshx=meshx_sample+2*meshx_sty; <span class="comment">% Total number of elements in x</span>
+nel=meshx*meshy*meshz;    <span class="comment">% Number of elements</span>
+nodex=meshx+1;            <span class="comment">% Number of Nodes in x-direction</span>
+nodey=meshy+1;            <span class="comment">% Number of Nodes in y-direction</span>
+nodez=meshz+1;            <span class="comment">% Number of Nodes in z-direction</span>
+nodes=nodex*nodey*nodez;   <span class="comment">% Number of Nodes</span>
+ndof=3*nodes;             <span class="comment">% Number of degrees of freedom</span>
+
+
+<span class="comment">% Allocate elasticity matrix E.</span>
+
+<span class="keyword">if</span> material_type==1; <span class="comment">% This corresponds to Sr$2$Ru0$4$</span>
+
+        E11=2.32;
+        E33=2.08;
+        E23=0.71;
+        E12=1.06;
+        E44=0.657;
+        E66=0.612;
+
+        E=zeros(6,6);
+
+        E(1,:)=[E11,E12,E23,0,0,0];
+        E(2,:)=[E12,E11,E23,0,0,0];
+        E(3,:)=[E23,E23,E33,0,0,0];
+        E(4,:)=[0,0,0,E44,0,0];
+        E(5,:)=[0,0,0,0,E44,0];
+        E(6,:)=[0,0,0,0,0,E66];
+
+        E=E.*1e11;
+
+<span class="keyword">elseif</span> material_type==2 <span class="comment">% Isotropic material</span>
+
+        v=0.3;
+        Emag=1e11;
+
+      E=Emag/((1+v)*(1-2*v))*[1-v ,  v , v ,  0      ,    0    ,    0     ;
+                              v  ,1-v , v ,  0      ,    0    ,    0     ;
+                              v  ,  v ,1-v,  0      ,    0    ,    0     ;
+                              0  ,  0 , 0 ,(1-2*v)/2,    0    ,    0     ;
+                              0  ,  0 , 0 ,  0      ,(1-2*v)/2,    0     ;
+                              0  ,  0 , 0 ,  0      ,    0    ,(1-2*v)/2];
+
+<span class="keyword">else</span>
+
+    error(<span class="string">'Unrecognised value for material type'</span>);
+
+<span class="keyword">end</span>
+
+<span class="comment">%____PREPROCESSOR_________________________________________________________%</span>
+<span class="comment">%Generates mesh co-ordinates and topology. See Preprocessor.m for full</span>
+<span class="comment">%desciption of method and output variables</span>
+
+[Cor , Pos, sample,total]=Preprocessor( aspectab,aspectac,meshx_sample,<span class="keyword">...</span>
+ meshx_sty,meshx,meshy,meshz,bcmode,styecastratio,nodes,nodex,nodey,nodez);
+
+
+<span class="comment">%_________________________________________________________________________%</span>
+
+
+<span class="comment">%__Generate Boundary Conditions___________________________________________</span>
+<span class="comment">%See Boundary_Conditions.m for full description</span>
+[Re,R,dofConstraints,P]=Boundary_Conditions(Pos,Cor,ex, ey, ez,nodes,<span class="keyword">...</span>
+    nel,ndof,bcmode,sample,total);
+
+
+<span class="comment">%_________________________________________________________________________</span>
+
+<span class="comment">%___Solver___________________________________________________________%</span>
+<span class="comment">%Generates system stiffness matrix, enforces boundary conditions and solves</span>
+<span class="comment">%for nodal displacements. See Solver_v2.m for details.</span>
+
+[D,sparseKsis]=Solver_v2(Cor,Pos,R,E,dofConstraints,P,nel,ndof);
+
+<span class="comment">%______________________________________________________________________%</span>
+
+
+<span class="comment">%___Strain Calculation_________________________________________________%</span>
+<span class="comment">%Calculates strains from displacement field.</span>
+
+ [strain, Displacements]=Strain_calc(Cor,Pos,R,nel,D);
+
+ <span class="comment">%______________________________________________________________________%</span>
+
+
+
+ <span class="comment">%Generates arrays X,Y,Z that specify node co-ordinates in the form</span>
+ <span class="comment">% x coordinate of node in element m with local node number n = X(n,m)</span>
+
+
+  <span class="keyword">for</span> s=1:nel
+X(:,s)=Cor(Pos(s,:)',1);
+<span class="keyword">end</span>
+
+<span class="keyword">for</span> s=1:nel
+Y(:,s)=Cor(Pos(s,:)',2);
+<span class="keyword">end</span>
+
+<span class="keyword">for</span> s=1:nel
+Z(:,s)=Cor(Pos(s,:)',3);
+<span class="keyword">end</span>
+
+
+<span class="comment">% Calculate the centre of each element: x coordinate at centre of element</span>
+<span class="comment">% m=xcen(m)</span>
+
+xcen=(mean(X));
+ycen=mean(Y);
+zcen=mean(Z);
+
+<span class="comment">%Element centre coordinates and strains are put into the arrays SX, SY, SZ</span>
+<span class="comment">%described in the header. These are of the form required by the matlab</span>
+<span class="comment">%slice function for volume exploration</span>
+
+dimensions1=[total(1),total(2),total(3),meshx,meshy,meshz,nel];
+
+
+[SX,SY,SZ,SSTRAIN]=Sliceform(dimensions1,strain,xcen,ycen,zcen);
+
+
+<span class="comment">%Allocate vector holding simulation dimensions in form</span>
+<span class="comment">% [ sample length in x, sl y, slz, total length in x,tl y, tlz, meshx...</span>
+<span class="comment">%,meshy, meshyz, nel]</span>
+dimensions=[sample,total,meshx,meshy,meshz,nel];
+
+
+
+
+toc
+
+
+
+
+
+
+<span class="keyword">end</span>
+</pre><pre class="codeoutput">Error using FEA_Routine (line 63)
+Not enough input arguments.
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2012b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+function [ SX,SY,SZ,SSTRAIN,X,Y,Z,Displacements,dimensions] = FEA_Routine( meshx_sample,meshy,meshz,aspectab,aspectac,bcmode,ex,ey,ez,material_type,styecastratio )
+%FEA_Routine: Performs mesh generation and solution of elasticity problem
+%using 8-node hexahedral finite element analysis
+
+
+
+%_________________________________________________________________
+%| 8-Node Hexahedral Finite Element Solver
+%|This function assembles a cuboidal mesh of 8-node hexahedral elements for
+%input argument specified aspect ratios. It then imposes one of a predefined set
+%of boundary conditions on the system and then solves for the displacement
+%field. The system stiffness matrix is assembled  and the displacement 
+%field is solved for using
+%Cholesky decomposition.
+%
+%Input arguments:
+%
+%meshx_sample:   The number of elements along the x -direction that the
+%sample outside the stycast should have. Extra elements are added by the
+%program for any length of crystal inside stycast. 
+%meshy: y -direction elements
+%meshz: z-direction elements
+%aspectab: sample length in x / sample length in y
+%aspectac: sample length in x/ sample length in z
+%bcmode: Boundary condition type. Takes values 1,2,3 corresponding to only
+%edges of end faces clamped, ends embedded in stycast, end embedded but
+%only bottom face constrained
+%ex,ey,ez imposed strains along the x,y,z directions. Note that +ve
+%corresponds to compression
+%|material_type: takes values 1,2 correspondong to Sr$2$RuO$4$ and
+%Isoptropic material
+%styecast_ratio: Extra length of crystal at each end is embedded in
+%styecast_ratio * Min(length in z, length in y)
+%|
+%| Output Variables:                                                              
+%| SX, SY, SZ are mxnxp arrays specifying the X, Y, Z co-ordinates of the centre of the elements in meshgrid format                                                              
+% SSTRAIN is an mxnxpx6 arrays holding the strains 1-6 evaluated at the
+% centre of each element in meshgrid format
+%X,Y,Z specific co-ordinates of nodes in a format that will be described
+%alongside their allocation
+%Displacements holds the displacements in a format specified alongside allocation
+%dimensions: Vector is the format [ total x-length, sample x-length, total
+%elements in x, # el in y, #el in z]
+%
+%
+%Required Functions:
+%Preprocessor.m
+%Boundary_Conditions.m
+%Solver_v2.m
+%Strain_calc.m
+%
+%
+%
+%
+%
+%________________________________________________________________
+
+tic
+
+%Calculate meshx_sty = # elements in x embedded in stycast, set equal to
+%whichever of meshy, meshz is larger
+
+if bcmode==2 || bcmode==3
+meshx_sty=2*max(meshy,meshz);
+else
+    meshx_sty=0;
+end
+
+meshx=meshx_sample+2*meshx_sty; % Total number of elements in x 
+nel=meshx*meshy*meshz;    % Number of elements 
+nodex=meshx+1;            % Number of Nodes in x-direction
+nodey=meshy+1;            % Number of Nodes in y-direction
+nodez=meshz+1;            % Number of Nodes in z-direction
+nodes=nodex*nodey*nodez;   % Number of Nodes
+ndof=3*nodes;             % Number of degrees of freedom
+
+
+% Allocate elasticity matrix E.
+
+if material_type==1; % This corresponds to Sr$2$Ru0$4$
+    
+        E11=2.32;
+        E33=2.08;
+        E23=0.71;
+        E12=1.06;
+        E44=0.657;
+        E66=0.612;
+
+        E=zeros(6,6);
+
+        E(1,:)=[E11,E12,E23,0,0,0];
+        E(2,:)=[E12,E11,E23,0,0,0];
+        E(3,:)=[E23,E23,E33,0,0,0];
+        E(4,:)=[0,0,0,E44,0,0];
+        E(5,:)=[0,0,0,0,E44,0];
+        E(6,:)=[0,0,0,0,0,E66];
+
+        E=E.*1e11;
+        
+elseif material_type==2 % Isotropic material
+    
+        v=0.3;
+        Emag=1e11;
+    
+      E=Emag/((1+v)*(1-2*v))*[1-v ,  v , v ,  0      ,    0    ,    0     ;   
+                              v  ,1-v , v ,  0      ,    0    ,    0     ;  
+                              v  ,  v ,1-v,  0      ,    0    ,    0     ; 
+                              0  ,  0 , 0 ,(1-2*v)/2,    0    ,    0     ;
+                              0  ,  0 , 0 ,  0      ,(1-2*v)/2,    0     ;
+                              0  ,  0 , 0 ,  0      ,    0    ,(1-2*v)/2];
+                  
+else
+    
+    error('Unrecognised value for material type');
+
+end
+
+%____PREPROCESSOR_________________________________________________________%
+%Generates mesh co-ordinates and topology. See Preprocessor.m for full
+%desciption of method and output variables 
+
+[Cor , Pos, sample,total]=Preprocessor( aspectab,aspectac,meshx_sample,...
+ meshx_sty,meshx,meshy,meshz,bcmode,styecastratio,nodes,nodex,nodey,nodez);
+
+
+%_________________________________________________________________________%
+
+
+%__Generate Boundary Conditions___________________________________________
+%See Boundary_Conditions.m for full description
+[Re,R,dofConstraints,P]=Boundary_Conditions(Pos,Cor,ex, ey, ez,nodes,...
+    nel,ndof,bcmode,sample,total);
+
+
+%_________________________________________________________________________
+
+%___Solver___________________________________________________________%
+%Generates system stiffness matrix, enforces boundary conditions and solves
+%for nodal displacements. See Solver_v2.m for details.
+
+[D,sparseKsis]=Solver_v2(Cor,Pos,R,E,dofConstraints,P,nel,ndof);
+
+%______________________________________________________________________%
+
+
+%___Strain Calculation_________________________________________________%
+%Calculates strains from displacement field.
+
+ [strain, Displacements]=Strain_calc(Cor,Pos,R,nel,D);  
+ 
+ %______________________________________________________________________%
+ 
+ 
+ 
+ %Generates arrays X,Y,Z that specify node co-ordinates in the form 
+ % x coordinate of node in element m with local node number n = X(n,m)  
+ 
+ 
+  for s=1:nel
+X(:,s)=Cor(Pos(s,:)',1);
+end
+
+for s=1:nel
+Y(:,s)=Cor(Pos(s,:)',2);
+end
+
+for s=1:nel
+Z(:,s)=Cor(Pos(s,:)',3);
+end
+
+
+% Calculate the centre of each element: x coordinate at centre of element
+% m=xcen(m)
+
+xcen=(mean(X));
+ycen=mean(Y);
+zcen=mean(Z);
+
+%Element centre coordinates and strains are put into the arrays SX, SY, SZ
+%described in the header. These are of the form required by the matlab
+%slice function for volume exploration
+
+dimensions1=[total(1),total(2),total(3),meshx,meshy,meshz,nel];
+
+
+[SX,SY,SZ,SSTRAIN]=Sliceform(dimensions1,strain,xcen,ycen,zcen);
+ 
+
+%Allocate vector holding simulation dimensions in form
+% [ sample length in x, sl y, slz, total length in x,tl y, tlz, meshx...
+%,meshy, meshyz, nel]
+dimensions=[sample,total,meshx,meshy,meshz,nel];
+ 
+
+
+ 
+toc
+
+
+
+
+
+
+end
+
+
+##### SOURCE END #####
+--></body></html>
